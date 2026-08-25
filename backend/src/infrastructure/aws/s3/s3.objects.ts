@@ -1,4 +1,4 @@
-import { HeadObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand,DeleteObjectCommand, Bucket$ } from "@aws-sdk/client-s3";
 
 import { s3 } from "./s3.client.ts";
 
@@ -25,3 +25,14 @@ export const checkObjectExists = async (
     return false;
   }
 };
+
+export const deleteObject = async(
+    s3Key:string,
+
+):Promise<void> => {
+    const command = new DeleteObjectCommand({
+        Bucket:BUCKET_NAME,
+        Key:s3Key
+    });
+    await s3.send(command);
+}

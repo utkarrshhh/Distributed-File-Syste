@@ -1,4 +1,4 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand,GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { s3 } from "./s3.client.ts";
@@ -29,3 +29,14 @@ export const generateUploadUrl = async (
 
   return uploadUrl;
 };
+
+export const generateDownloadUrl = async (
+    s3Key:string
+) => {
+    const command = new GetObjectCommand({
+        Bucket:BUCKET_NAME,
+        Key:s3Key,
+    })
+    const downloadUrl = await getSignedUrl(s3,command,{expiresIn:300})
+    return downloadUrl;
+}
