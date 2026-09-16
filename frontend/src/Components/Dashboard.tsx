@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Cloud,
   Download,
@@ -6,15 +6,21 @@ import {
   FileImage,
   FileSpreadsheet,
   FileText,
+  FolderOpen,
+  HardDrive,
   LogOut,
-  MoreVertical,
+  MoreHorizontal,
   Search,
   ShieldCheck,
   Trash2,
   Upload,
   X,
+  CheckCircle2,
+  Clock3,
+  Menu,
+  Sparkles,
 } from "lucide-react";
-
+import "./Dashboard.css";
 interface FileMetadata {
   userId: string;
   fileId: string;
@@ -34,58 +40,55 @@ export function Dashboard() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  const [showUpload, setShowUpload] =
-    useState(false);
-
+  const [showUpload, setShowUpload] = useState(false);
   const [selectedFile, setSelectedFile] =
     useState<globalThis.File | null>(null);
 
-  const [uploading, setUploading] =
-    useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
-  const [uploadError, setUploadError] =
-    useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  const storedUser = localStorage.getItem("user");
+
+  const user = storedUser
+    ? JSON.parse(storedUser)
+    : null;
+
+  const userName = user?.name || "there";
 
 
-  /* =========================================
-     GET FILES
-     ========================================= */
+  /* ==========================================
+     FETCH FILES
+     ========================================== */
 
   const fetchFiles = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
-        throw new Error(
-          "You are not authenticated."
-        );
+        throw new Error("You are not authenticated.");
       }
 
-      const response = await fetch(
-        `${API_URL}/files`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/files`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.message ||
-            "Failed to fetch files"
+          result.message || "Failed to fetch files"
         );
       }
 
       setFiles(result.files || []);
-
     } catch (error) {
       setError(
         error instanceof Error
@@ -97,15 +100,14 @@ export function Dashboard() {
     }
   };
 
-
   useEffect(() => {
     fetchFiles();
   }, []);
 
 
-  /* =========================================
+  /* ==========================================
      LOGOUT
-     ========================================= */
+     ========================================== */
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -115,27 +117,23 @@ export function Dashboard() {
   };
 
 
-  /* =========================================
+  /* ==========================================
      DOWNLOAD
-     ========================================= */
+     ========================================== */
 
-  const handleDownload = async (
-    fileId: string
-  ) => {
+  const handleDownload = async (fileId: string) => {
     try {
-      const token =
-        localStorage.getItem("token");
+      setOpenMenu(null);
+
+      const token = localStorage.getItem("token");
 
       if (!token) {
-        throw new Error(
-          "You are not authenticated."
-        );
+        throw new Error("You are not authenticated.");
       }
 
       const response = await fetch(
         `${API_URL}/files/${fileId}/download`,
         {
-          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -146,17 +144,11 @@ export function Dashboard() {
 
       if (!response.ok) {
         throw new Error(
-          result.message ||
-            "Download failed"
+          result.message || "Download failed"
         );
       }
 
-      // Backend returns a presigned URL
-      window.open(
-        result.downloadUrl,
-        "_blank"
-      );
-
+      window.open(result.downloadUrl, "_blank");
     } catch (error) {
       alert(
         error instanceof Error
@@ -167,29 +159,24 @@ export function Dashboard() {
   };
 
 
-  /* =========================================
+  /* ==========================================
      DELETE
-     ========================================= */
+     ========================================== */
 
-  const handleDelete = async (
-    fileId: string
-  ) => {
+  const handleDelete = async (fileId: string) => {
+    setOpenMenu(null);
+
     const confirmed = window.confirm(
       "Are you sure you want to delete this file?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
-        throw new Error(
-          "You are not authenticated."
-        );
+        throw new Error("You are not authenticated.");
       }
 
       const response = await fetch(
@@ -206,19 +193,15 @@ export function Dashboard() {
 
       if (!response.ok) {
         throw new Error(
-          result.message ||
-            "Failed to delete file"
+          result.message || "Failed to delete file"
         );
       }
 
-      // Remove deleted file from UI
-      setFiles((currentFiles) =>
-        currentFiles.filter(
-          (file) =>
-            file.fileId !== fileId
+      setFiles((current) =>
+        current.filter(
+          (file) => file.fileId !== fileId
         )
       );
-
     } catch (error) {
       alert(
         error instanceof Error
@@ -229,15 +212,13 @@ export function Dashboard() {
   };
 
 
-  /* =========================================
+  /* ==========================================
      UPLOAD
-     ========================================= */
+     ========================================== */
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setUploadError(
-        "Please select a file."
-      );
+      setUploadError("Please select a file.");
       return;
     }
 
@@ -245,49 +226,33 @@ export function Dashboard() {
       setUploading(true);
       setUploadError("");
 
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
-        throw new Error(
-          "You are not authenticated."
-        );
+        throw new Error("You are not authenticated.");
       }
 
 
-      /* -------------------------------------
-         STEP 1
-         Ask backend for presigned URL
-      ------------------------------------- */
+      // 1. Get presigned URL
 
-      const uploadUrlResponse =
-        await fetch(
-          `${API_URL}/files/upload-url`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Authorization:
-                `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              fileName:
-                selectedFile.name,
-
-              contentType:
-                selectedFile.type,
-
-              fileSize:
-                selectedFile.size,
-            }),
-          }
-        );
-
+      const uploadUrlResponse = await fetch(
+        `${API_URL}/files/upload-url`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fileName: selectedFile.name,
+            contentType: selectedFile.type,
+            fileSize: selectedFile.size,
+          }),
+        }
+      );
 
       const uploadData =
         await uploadUrlResponse.json();
-
 
       if (!uploadUrlResponse.ok) {
         throw new Error(
@@ -297,24 +262,18 @@ export function Dashboard() {
       }
 
 
-      /* -------------------------------------
-         STEP 2
-         Upload directly to S3
-      ------------------------------------- */
+      // 2. Upload directly to S3
 
-      const s3Response =
-        await fetch(
-          uploadData.uploadUrl,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type":
-                selectedFile.type,
-            },
-            body: selectedFile,
-          }
-        );
-
+      const s3Response = await fetch(
+        uploadData.uploadUrl,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": selectedFile.type,
+          },
+          body: selectedFile,
+        }
+      );
 
       if (!s3Response.ok) {
         throw new Error(
@@ -323,45 +282,28 @@ export function Dashboard() {
       }
 
 
-      /* -------------------------------------
-         STEP 3
-         Tell backend upload is complete
-      ------------------------------------- */
+      // 3. Complete upload
 
-      const completeResponse =
-        await fetch(
-          `${API_URL}/files/complete`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Authorization:
-                `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              fileId:
-                uploadData.fileId,
-
-              s3Key:
-                uploadData.s3Key,
-
-              fileName:
-                uploadData.fileName,
-
-              contentType:
-                uploadData.contentType,
-
-              fileSize:
-                uploadData.fileSize,
-            }),
-          }
-        );
-
+      const completeResponse = await fetch(
+        `${API_URL}/files/complete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fileId: uploadData.fileId,
+            s3Key: uploadData.s3Key,
+            fileName: uploadData.fileName,
+            contentType: uploadData.contentType,
+            fileSize: uploadData.fileSize,
+          }),
+        }
+      );
 
       const completeData =
         await completeResponse.json();
-
 
       if (!completeResponse.ok) {
         throw new Error(
@@ -370,17 +312,10 @@ export function Dashboard() {
         );
       }
 
-
-      /* -------------------------------------
-         STEP 4
-         Refresh file list
-      ------------------------------------- */
-
       await fetchFiles();
 
       setSelectedFile(null);
       setShowUpload(false);
-
     } catch (error) {
       setUploadError(
         error instanceof Error
@@ -393,464 +328,703 @@ export function Dashboard() {
   };
 
 
-  /* =========================================
-     SEARCH
-     ========================================= */
+  /* ==========================================
+     FILTER
+     ========================================== */
 
-  const filteredFiles =
-    files.filter((file) =>
+  const filteredFiles = useMemo(() => {
+    return files.filter((file) =>
       file.fileName
         .toLowerCase()
-        .includes(
-          search.toLowerCase()
-        )
+        .includes(search.toLowerCase())
     );
+  }, [files, search]);
 
 
-  /* =========================================
-     USER
-     ========================================= */
+  /* ==========================================
+     STATISTICS
+     ========================================== */
 
-  const storedUser =
-    localStorage.getItem("user");
+  const totalSize = files.reduce(
+    (total, file) => total + file.fileSize,
+    0
+  );
 
-  const user = storedUser
-    ? JSON.parse(storedUser)
-    : null;
+  const formatFileSize = (bytes: number) => {
+    if (!bytes) return "0 B";
 
-
-  /* =========================================
-     FORMAT FILE SIZE
-     ========================================= */
-
-  const formatFileSize = (
-    bytes: number
-  ) => {
-    if (bytes === 0) {
-      return "0 Bytes";
-    }
-
-    const units = [
-      "Bytes",
-      "KB",
-      "MB",
-      "GB",
-    ];
+    const units = ["B", "KB", "MB", "GB"];
 
     const index = Math.floor(
-      Math.log(bytes) /
-        Math.log(1024)
+      Math.log(bytes) / Math.log(1024)
     );
 
     return `${(
-      bytes /
-      Math.pow(1024, index)
+      bytes / Math.pow(1024, index)
     ).toFixed(1)} ${units[index]}`;
   };
 
 
-  /* =========================================
+  /* ==========================================
      FILE ICON
-     ========================================= */
+     ========================================== */
 
   const getFileIcon = (
     contentType: string
   ) => {
-    if (
-      contentType.includes("pdf")
-    ) {
-      return (
-        <FileText
-          size={19}
-        />
-      );
+    if (contentType.includes("pdf")) {
+      return <FileText size={19} />;
     }
 
     if (
-      contentType.includes(
-        "spreadsheet"
-      ) ||
-      contentType.includes("excel")
+      contentType.includes("excel") ||
+      contentType.includes("spreadsheet")
     ) {
-      return (
-        <FileSpreadsheet
-          size={19}
-        />
-      );
+      return <FileSpreadsheet size={19} />;
     }
+
+    if (contentType.startsWith("image/")) {
+      return <FileImage size={19} />;
+    }
+
+    return <File size={19} />;
+  };
+
+
+  /* ==========================================
+     FILE TYPE
+     ========================================== */
+
+  const getFileType = (
+    contentType: string
+  ) => {
+    if (contentType.includes("pdf")) return "PDF";
 
     if (
-      contentType.startsWith(
-        "image/"
-      )
+      contentType.includes("excel") ||
+      contentType.includes("spreadsheet")
     ) {
-      return (
-        <FileImage
-          size={19}
-        />
-      );
+      return "Spreadsheet";
     }
 
-    return (
-      <File size={19} />
-    );
+    if (contentType.startsWith("image/")) {
+      return "Image";
+    }
+
+    return "File";
   };
 
 
   return (
-    <main className="min-h-screen bg-background">
+    <div className="dashboard-shell">
 
-      {/* =====================================
-          NAVBAR
-      ====================================== */}
+      {/* ========================================
+          MOBILE OVERLAY
+      ======================================== */}
 
-      <nav className="border-b border-border bg-white/80 backdrop-blur">
+      {sidebarOpen && (
+        <div
+          className="dashboard-mobile-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+
+      {/* ========================================
+          SIDEBAR
+      ======================================== */}
+
+      <aside
+        className={`dashboard-sidebar ${
+          sidebarOpen
+            ? "dashboard-sidebar-open"
+            : ""
+        }`}
+      >
+
+        <div>
 
           {/* Logo */}
 
-          <div className="flex items-center gap-3">
+          <div className="dashboard-brand">
 
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-
+            <div className="dashboard-brand-icon">
               <Cloud size={18} />
-
             </div>
 
-            <span className="text-lg font-bold tracking-tight">
-              lumen
-            </span>
+            <span>lumen</span>
 
           </div>
 
 
-          {/* User */}
+          {/* Workspace */}
 
-          <div className="flex items-center gap-4">
+          <div className="dashboard-workspace">
 
-            <div className="hidden text-right sm:block">
+            <div className="workspace-avatar">
+              {userName.charAt(0).toUpperCase()}
+            </div>
 
-              <p className="text-sm font-semibold">
-                {user?.name ||
-                  "User"}
-              </p>
+            <div>
 
-              <p className="text-xs text-muted-foreground">
-                {user?.email || ""}
-              </p>
+              <p>Personal workspace</p>
+
+              <span>
+                {user?.email || "Your workspace"}
+              </span>
 
             </div>
 
+          </div>
+
+
+          {/* Navigation */}
+
+          <div className="dashboard-nav-label">
+            Workspace
+          </div>
+
+          <nav className="dashboard-nav">
+
+            <button className="dashboard-nav-item active">
+              <FolderOpen size={17} />
+              Overview
+            </button>
+
+            <button className="dashboard-nav-item">
+              <File size={17} />
+              My files
+            </button>
 
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium transition hover:bg-gray-50"
+              className="dashboard-nav-item"
+              onClick={() =>
+                setShowUpload(true)
+              }
             >
+              <Upload size={17} />
+              Upload
+            </button>
 
-              <LogOut size={15} />
+          </nav>
 
-              <span className="hidden sm:block">
-                Log out
+
+          <div className="dashboard-nav-label">
+            Storage
+          </div>
+
+
+          {/* Storage card */}
+
+          <div className="storage-card">
+
+            <div className="storage-card-icon">
+              <HardDrive size={17} />
+            </div>
+
+            <div className="storage-card-title">
+              Cloud storage
+            </div>
+
+            <div className="storage-progress">
+              <div
+                className="storage-progress-value"
+                style={{
+                  width: "18%",
+                }}
+              />
+            </div>
+
+            <div className="storage-card-footer">
+              <span>
+                {formatFileSize(totalSize)}
               </span>
 
-            </button>
+              <span>
+                18% used
+              </span>
+            </div>
 
           </div>
 
         </div>
 
-      </nav>
 
+        {/* Sidebar bottom */}
 
-      {/* =====================================
-          MAIN CONTENT
-      ====================================== */}
+        <div className="dashboard-sidebar-bottom">
 
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
+          <div className="secure-badge">
 
+            <ShieldCheck size={17} />
 
-        {/* Header */}
+            <div>
 
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <strong>
+                Your files are private
+              </strong>
 
-          <div>
-
-            <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
-
-              <ShieldCheck size={14} />
-
-              Secure workspace
+              <span>
+                Secured with authentication
+              </span>
 
             </div>
-
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              My Files
-            </h1>
-
-            <p className="mt-2 text-sm text-muted-foreground">
-              Store, manage and access your
-              files securely.
-            </p>
 
           </div>
 
 
           <button
-            onClick={() =>
-              setShowUpload(true)
-            }
-            className="auth-button flex items-center justify-center gap-2 px-5"
+            onClick={handleLogout}
+            className="dashboard-logout"
           >
-
-            <Upload size={17} />
-
-            Upload file
-
+            <LogOut size={16} />
+            Log out
           </button>
 
         </div>
 
+      </aside>
 
-        {/* =====================================
-            SEARCH + STATS
-        ====================================== */}
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* ========================================
+          MAIN
+      ======================================== */}
 
-          <div className="relative max-w-md flex-1">
+      <main className="dashboard-main">
 
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={17}
-            />
+
+        {/* ======================================
+            TOP BAR
+        ======================================= */}
+
+        <header className="dashboard-topbar">
+
+          <button
+            className="dashboard-mobile-menu"
+            onClick={() =>
+              setSidebarOpen(true)
+            }
+          >
+            <Menu size={20} />
+          </button>
+
+
+          {/* Search */}
+
+          <div className="dashboard-global-search">
+
+            <Search size={17} />
 
             <input
-              type="text"
-              placeholder="Search your files..."
               value={search}
               onChange={(event) =>
                 setSearch(
                   event.target.value
                 )
               }
-              className="h-11 w-full rounded-lg border border-border bg-white pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+              placeholder="Search your files..."
             />
 
-          </div>
-
-
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5">
-
-            <Cloud
-              size={16}
-              className="text-primary"
-            />
-
-            <span className="text-sm font-medium">
-              {files.length}{" "}
-              {files.length === 1
-                ? "file"
-                : "files"}
-            </span>
-
-          </div>
-
-        </div>
-
-
-        {/* =====================================
-            FILE LIST
-        ====================================== */}
-
-        <section className="mt-6 overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-
-          {/* Table header */}
-
-          <div className="hidden grid-cols-[1fr_120px_120px_80px] gap-4 border-b border-border bg-gray-50/70 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid">
-
             <span>
-              File
-            </span>
-
-            <span>
-              Size
-            </span>
-
-            <span>
-              Status
-            </span>
-
-            <span>
-              Actions
+              ⌘ K
             </span>
 
           </div>
 
 
-          {/* Loading */}
+          {/* Right */}
 
-          {loading && (
-            <div className="flex min-h-64 items-center justify-center">
+          <div className="dashboard-topbar-right">
 
-              <div className="text-center">
+            <div className="dashboard-secure-status">
+              <span />
+              Secure
+            </div>
 
-                <div className="mx-auto size-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            <div className="dashboard-user">
 
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Loading your files...
-                </p>
+              <div className="dashboard-user-avatar">
+                {userName.charAt(0).toUpperCase()}
+              </div>
+
+              <div className="dashboard-user-info">
+
+                <strong>
+                  {userName}
+                </strong>
+
+                <span>
+                  Personal
+                </span>
 
               </div>
 
             </div>
-          )}
+
+          </div>
+
+        </header>
 
 
-          {/* Error */}
+        {/* ======================================
+            CONTENT
+        ======================================= */}
 
-          {!loading && error && (
-            <div className="p-8 text-center">
+        <div className="dashboard-content">
 
-              <p className="text-sm text-red-500">
-                {error}
+
+          {/* Greeting */}
+
+          <section className="dashboard-greeting">
+
+            <div>
+
+              <div className="dashboard-eyebrow">
+
+                <Sparkles size={13} />
+
+                Your workspace
+
+              </div>
+
+              <h1>
+                Good to see you,{" "}
+                {userName.split(" ")[0]}.
+              </h1>
+
+              <p>
+                Everything you need, right where
+                you left it.
               </p>
 
-              <button
-                onClick={fetchFiles}
-                className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
-              >
-                Try again
-              </button>
-
             </div>
-          )}
 
 
-          {/* Empty */}
+            <button
+              className="dashboard-upload-button"
+              onClick={() =>
+                setShowUpload(true)
+              }
+            >
 
-          {!loading &&
-            !error &&
-            filteredFiles.length ===
-              0 && (
-              <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
+              <Upload size={17} />
 
-                <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              Upload file
 
-                  <Cloud size={25} />
+            </button>
 
+          </section>
+
+
+          {/* ====================================
+              STAT CARDS
+          ===================================== */}
+
+          <section className="dashboard-stats">
+
+            <div className="dashboard-stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon purple">
+                  <File size={18} />
                 </div>
 
-                <h3 className="mt-5 text-lg font-semibold">
-                  {search
-                    ? "No files found"
-                    : "Your workspace is empty"}
-                </h3>
-
-                <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-
-                  {search
-                    ? "Try searching for a different file name."
-                    : "Upload your first file to get started."}
-
-                </p>
-
-                {!search && (
-                  <button
-                    onClick={() =>
-                      setShowUpload(true)
-                    }
-                    className="mt-5 flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white"
-                  >
-
-                    <Upload size={15} />
-
-                    Upload your first file
-
-                  </button>
-                )}
+                <span className="stat-label">
+                  Total files
+                </span>
 
               </div>
-            )}
+
+              <strong>
+                {files.length}
+              </strong>
+
+              <span className="stat-description">
+                Files in your workspace
+              </span>
+
+            </div>
 
 
-          {/* Files */}
+            <div className="dashboard-stat-card">
 
-          {!loading &&
-            !error &&
-            filteredFiles.length >
-              0 && (
+              <div className="stat-card-top">
+
+                <div className="stat-icon blue">
+                  <HardDrive size={18} />
+                </div>
+
+                <span className="stat-label">
+                  Storage used
+                </span>
+
+              </div>
+
+              <strong>
+                {formatFileSize(totalSize)}
+              </strong>
+
+              <span className="stat-description">
+                Across all your files
+              </span>
+
+            </div>
+
+
+            <div className="dashboard-stat-card">
+
+              <div className="stat-card-top">
+
+                <div className="stat-icon green">
+                  <ShieldCheck size={18} />
+                </div>
+
+                <span className="stat-label">
+                  Security
+                </span>
+
+              </div>
+
+              <strong className="stat-security">
+                Protected
+              </strong>
+
+              <span className="stat-description">
+                Your files are private
+              </span>
+
+            </div>
+
+          </section>
+
+
+          {/* ====================================
+              FILES
+          ===================================== */}
+
+          <section className="dashboard-files-section">
+
+
+            <div className="files-section-header">
 
               <div>
 
-                {filteredFiles.map(
+                <h2>
+                  Your files
+                </h2>
+
+                <p>
+                  {filteredFiles.length}{" "}
+                  {filteredFiles.length === 1
+                    ? "file"
+                    : "files"}{" "}
+                  in your workspace
+                </p>
+
+              </div>
+
+
+              <button
+                className="files-refresh-button"
+                onClick={fetchFiles}
+              >
+                Refresh
+              </button>
+
+            </div>
+
+
+            {/* FILE TABLE */}
+
+            <div className="files-table">
+
+
+              {/* Header */}
+
+              <div className="files-table-header">
+
+                <span>
+                  Name
+                </span>
+
+                <span>
+                  Type
+                </span>
+
+                <span>
+                  Size
+                </span>
+
+                <span>
+                  Added
+                </span>
+
+                <span />
+
+              </div>
+
+
+              {/* Loading */}
+
+              {loading && (
+                <div className="files-empty-state">
+
+                  <div className="dashboard-spinner" />
+
+                  <p>
+                    Loading your files...
+                  </p>
+
+                </div>
+              )}
+
+
+              {/* Error */}
+
+              {!loading && error && (
+                <div className="files-empty-state">
+
+                  <div className="empty-icon error">
+                    <X size={21} />
+                  </div>
+
+                  <h3>
+                    Couldn't load your files
+                  </h3>
+
+                  <p>
+                    {error}
+                  </p>
+
+                  <button
+                    onClick={fetchFiles}
+                    className="empty-action"
+                  >
+                    Try again
+                  </button>
+
+                </div>
+              )}
+
+
+              {/* Empty */}
+
+              {!loading &&
+                !error &&
+                filteredFiles.length ===
+                  0 && (
+                  <div className="files-empty-state">
+
+                    <div className="empty-icon">
+                      <FolderOpen size={22} />
+                    </div>
+
+                    <h3>
+                      {search
+                        ? "No matching files"
+                        : "Your workspace is empty"}
+                    </h3>
+
+                    <p>
+                      {search
+                        ? "Try a different search term."
+                        : "Upload your first file to get started."}
+                    </p>
+
+                    {!search && (
+                      <button
+                        onClick={() =>
+                          setShowUpload(true)
+                        }
+                        className="empty-action"
+                      >
+                        <Upload size={15} />
+                        Upload your first file
+                      </button>
+                    )}
+
+                  </div>
+                )}
+
+
+              {/* FILES */}
+
+              {!loading &&
+                !error &&
+                filteredFiles.map(
                   (file) => (
 
                     <div
                       key={file.fileId}
-                      className="group grid grid-cols-1 gap-4 border-b border-border px-5 py-4 transition hover:bg-purple-50/30 sm:grid-cols-[1fr_120px_120px_80px] sm:items-center sm:gap-4"
+                      className="file-row"
                     >
 
-                      {/* File */}
+                      {/* Name */}
 
-                      <div className="flex min-w-0 items-center gap-3">
+                      <div className="file-name-cell">
 
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-
+                        <div className="file-type-icon">
                           {getFileIcon(
                             file.contentType
                           )}
-
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="file-name-info">
 
-                          <p className="truncate text-sm font-semibold">
+                          <strong>
                             {file.fileName}
-                          </p>
+                          </strong>
 
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {file.contentType}
-                          </p>
+                          <span>
+                            {file.fileId.slice(
+                              0,
+                              8
+                            )}
+                          </span>
 
                         </div>
 
                       </div>
+
+
+                      {/* Type */}
+
+                      <span className="file-type-text">
+                        {getFileType(
+                          file.contentType
+                        )}
+                      </span>
 
 
                       {/* Size */}
 
-                      <div className="text-sm text-muted-foreground">
-
-                        <span className="sm:hidden">
-                          Size:{" "}
-                        </span>
-
+                      <span className="file-size-text">
                         {formatFileSize(
                           file.fileSize
                         )}
+                      </span>
 
-                      </div>
 
+                      {/* Date */}
 
-                      {/* Status */}
-
-                      <div>
-
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-600">
-
-                          <span className="size-1.5 rounded-full bg-green-500" />
-
-                          {file.status}
-
-                        </span>
-
-                      </div>
+                      <span className="file-date-text">
+                        {new Date(
+                          file.createdAt
+                        ).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </span>
 
 
                       {/* Actions */}
 
-                      <div className="flex items-center gap-1">
+                      <div className="file-actions">
 
                         <button
                           onClick={() =>
@@ -859,31 +1033,66 @@ export function Dashboard() {
                             )
                           }
                           title="Download"
-                          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+                          className="file-action download"
                         >
-
-                          <Download
-                            size={16}
-                          />
-
+                          <Download size={16} />
                         </button>
 
 
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              file.fileId
-                            )
-                          }
-                          title="Delete"
-                          className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-red-50 hover:text-red-500"
-                        >
+                        <div className="file-more-wrapper">
 
-                          <Trash2
-                            size={16}
-                          />
+                          <button
+                            onClick={() =>
+                              setOpenMenu(
+                                openMenu ===
+                                  file.fileId
+                                  ? null
+                                  : file.fileId
+                              )
+                            }
+                            className="file-action"
+                          >
+                            <MoreHorizontal
+                              size={17}
+                            />
+                          </button>
 
-                        </button>
+
+                          {openMenu ===
+                            file.fileId && (
+                            <div className="file-menu">
+
+                              <button
+                                onClick={() =>
+                                  handleDownload(
+                                    file.fileId
+                                  )
+                                }
+                              >
+                                <Download
+                                  size={15}
+                                />
+                                Download
+                              </button>
+
+                              <button
+                                className="danger"
+                                onClick={() =>
+                                  handleDelete(
+                                    file.fileId
+                                  )
+                                }
+                              >
+                                <Trash2
+                                  size={15}
+                                />
+                                Delete
+                              </button>
+
+                            </div>
+                          )}
+
+                        </div>
 
                       </div>
 
@@ -892,177 +1101,155 @@ export function Dashboard() {
                   )
                 )}
 
-              </div>
+            </div>
 
-            )}
+          </section>
 
-        </section>
+        </div>
 
-      </div>
+      </main>
 
 
-      {/* =====================================
+      {/* ========================================
           UPLOAD MODAL
-      ====================================== */}
+      ======================================== */}
 
       {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-5 backdrop-blur-sm">
 
-          <div className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-2xl">
+        <div className="upload-modal-overlay">
 
-            {/* Modal header */}
+          <div className="upload-modal">
 
-            <div className="flex items-start justify-between">
+
+            <div className="upload-modal-header">
 
               <div>
 
-                <h2 className="text-xl font-semibold">
-                  Upload file
+                <span className="modal-eyebrow">
+                  FILE UPLOAD
+                </span>
+
+                <h2>
+                  Add a new file
                 </h2>
 
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Select a file to upload
-                  securely.
+                <p>
+                  Your file will be uploaded
+                  directly to secure cloud storage.
                 </p>
 
               </div>
 
               <button
+                className="modal-close"
                 onClick={() => {
                   setShowUpload(false);
                   setSelectedFile(null);
                   setUploadError("");
                 }}
-                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-gray-100"
               >
-
-                <X size={17} />
-
+                <X size={18} />
               </button>
 
             </div>
 
 
-            {/* File input */}
+            {/* Drop zone */}
 
-            <div className="mt-6">
+            <label
+              htmlFor="dashboard-file-upload"
+              className={`upload-dropzone ${
+                selectedFile
+                  ? "has-file"
+                  : ""
+              }`}
+            >
 
-              <label
-                htmlFor="file-upload"
-                className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-gray-50 px-6 py-10 text-center transition hover:border-primary/40 hover:bg-purple-50/30"
-              >
+              <div className="upload-cloud-icon">
+                {selectedFile ? (
+                  <CheckCircle2 size={24} />
+                ) : (
+                  <Cloud size={24} />
+                )}
+              </div>
 
-                <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <h3>
+                {selectedFile
+                  ? selectedFile.name
+                  : "Choose a file to upload"}
+              </h3>
 
-                  <Upload size={22} />
+              <p>
+                {selectedFile
+                  ? formatFileSize(
+                      selectedFile.size
+                    )
+                  : "Click here to browse your computer"}
+              </p>
 
-                </div>
+              {!selectedFile && (
+                <span className="upload-hint">
+                  Files are uploaded securely
+                  using a direct cloud connection.
+                </span>
+              )}
 
-                <p className="mt-4 text-sm font-semibold">
+            </label>
 
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Choose a file"}
+            <input
+              id="dashboard-file-upload"
+              type="file"
+              className="hidden"
+              onChange={(event) => {
 
-                </p>
+                const file =
+                  event.target.files?.[0];
 
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Click to browse files
-                </p>
+                if (file) {
+                  setSelectedFile(file);
+                  setUploadError("");
+                }
 
-              </label>
-
-              <input
-                id="file-upload"
-                type="file"
-                className="hidden"
-                onChange={(event) => {
-                  const file =
-                    event.target.files?.[0];
-
-                  if (file) {
-                    setSelectedFile(file);
-                    setUploadError("");
-                  }
-                }}
-              />
-
-            </div>
+              }}
+            />
 
 
-            {/* Selected file information */}
-
-            {selectedFile && (
-              <div className="mt-4 rounded-lg bg-purple-50 p-3">
-
-                <div className="flex items-center gap-3">
-
-                  <File
-                    size={18}
-                    className="text-primary"
-                  />
-
-                  <div className="min-w-0 flex-1">
-
-                    <p className="truncate text-sm font-medium">
-                      {selectedFile.name}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(
-                        selectedFile.size
-                      )}
-                    </p>
-
-                  </div>
-
-                </div>
-
+            {uploadError && (
+              <div className="upload-error">
+                <X size={15} />
+                {uploadError}
               </div>
             )}
 
 
-            {/* Upload error */}
-
-            {uploadError && (
-              <p className="mt-4 text-sm text-red-500">
-                {uploadError}
-              </p>
-            )}
-
-
-            {/* Buttons */}
-
-            <div className="mt-6 flex gap-3">
+            <div className="upload-modal-footer">
 
               <button
-                type="button"
                 disabled={uploading}
+                className="modal-cancel"
                 onClick={() => {
                   setShowUpload(false);
                   setSelectedFile(null);
                   setUploadError("");
                 }}
-                className="flex-1 rounded-lg border border-border bg-white px-4 py-3 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
 
               <button
-                type="button"
                 disabled={
                   uploading ||
                   !selectedFile
                 }
+                className="modal-upload"
                 onClick={handleUpload}
-                className="auth-button flex flex-1 items-center justify-center gap-2"
               >
 
                 <Upload size={16} />
 
                 {uploading
                   ? "Uploading..."
-                  : "Upload"}
+                  : "Upload file"}
 
               </button>
 
@@ -1071,8 +1258,9 @@ export function Dashboard() {
           </div>
 
         </div>
+
       )}
 
-    </main>
+    </div>
   );
 }
