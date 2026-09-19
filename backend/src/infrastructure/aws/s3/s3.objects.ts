@@ -33,7 +33,6 @@ export const checkObjectExists = async (
     return false;
   }
 };
-
 export const deleteObject = async(
     s3Key:string,
 
