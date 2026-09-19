@@ -43,6 +43,8 @@ export const login = async (data: LoginData) => {
   if (!response.ok) {
     throw new Error(result.message || "Login failed");
   }
+// so this is the main line of code 
 
+  console.log(`${response.ok} how do you knwo this was supposed to be the output`)
   return result;
 };
