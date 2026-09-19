@@ -5,8 +5,15 @@ const cors = require('cors'); // Import cors
 
 const app = express();
 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://distributed-file-syste.vercel.app/",
+    ],
+  })
+);
 
-app.use(cors());
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/files", filesRoutes);
