@@ -1,8 +1,8 @@
 import crypto from "crypto";
-import { createFile, getFilesByUserId,getFileById ,deleteFileById} from "../repository/files.repository.ts";
-import { FileMetadata } from "../types/files.types.ts";
-import { generateUploadUrl,generateDownloadUrl } from "../../../infrastructure/aws/s3/s3.presigned.ts";
-import { deleteObject } from "../../../infrastructure/aws/s3/s3.objects.ts";
+import { createFile, getFilesByUserId,getFileById ,deleteFileById} from "../repository/files.repository.js";
+import { FileMetadata } from "../types/files.types.js";
+import { generateUploadUrl,generateDownloadUrl } from "../../../infrastructure/aws/s3/s3.presigned.js";
+import { deleteObject } from "../../../infrastructure/aws/s3/s3.objects.js";
 
 
 export const createFileMetaData = async (

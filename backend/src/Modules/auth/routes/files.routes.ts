@@ -1,7 +1,7 @@
 import { Router } from "express";
 
-import { createUploadUrlController,completeUploadController ,getUserFilesController,downloadFileController} from "../controller/files.controller.ts";
-import { authenticate } from "../../../middleware/auth.middleware.ts";
+import { createUploadUrlController,completeUploadController ,getUserFilesController,downloadFileController} from "../controller/files.controller.js";
+import { authenticate } from "../../../middleware/auth.middleware.js";
 import { deleteFileController } from "../controller/files.controller.js";
 
 

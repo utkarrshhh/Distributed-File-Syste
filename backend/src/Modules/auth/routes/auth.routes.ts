@@ -3,9 +3,9 @@ import { Router } from "express";
 import {
   signupController,
   loginController,
-} from "../controller/auth.controller.ts";
+} from "../controller/auth.controller.js";
 
-import { authenticate } from "../../../middleware/auth.middleware.ts";
+import { authenticate } from "../../../middleware/auth.middleware.js";
 
 const router = Router();
 

@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import {
   signup,
   login,
-} from "../service/auth.service.ts";
+} from "../service/auth.service.js";
 
 
 export const signupController = async (

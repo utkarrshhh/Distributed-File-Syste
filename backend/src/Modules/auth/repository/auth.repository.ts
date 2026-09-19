@@ -7,7 +7,7 @@ import {
   
   import { dynamoDB } from "../../../infrastructure/aws/dynamodb/dynamodb.client.js";
   
-  import { User } from "../types/user.types.ts";
+  import { User } from "../types/user.types.js";
   const TABLE_NAME = process.env.DYNAMODB_USERS_TABLE_NAME;
   
   export const queryUserIdByEmail = async (

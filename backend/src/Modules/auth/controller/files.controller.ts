@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { createUploadUrl, createFileMetaData ,getUserFiles, getFile,createDownloadUrl, deleteFile} from "../service/files.service.ts";
-import { checkObjectExists } from "../../../infrastructure/aws/s3/s3.objects.ts";
+import { createUploadUrl, createFileMetaData ,getUserFiles, getFile,createDownloadUrl, deleteFile} from "../service/files.service.js";
+import { checkObjectExists } from "../../../infrastructure/aws/s3/s3.objects.js";
 export const createUploadUrlController = async (
   req: Request,
   res: Response
@@ -9,7 +9,11 @@ export const createUploadUrlController = async (
     const { fileName, contentType, fileSize } = req.body;
 
     const userId = req.userId;
-
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
     const result = await createUploadUrl(
       userId,
       fileName,
@@ -41,6 +45,11 @@ export const completeUploadController = async (
     } = req.body;
 
     const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
     const expectedPrefix = `users/${userId}/files/${fileId}`;
     if (!(s3Key == expectedPrefix)) {
       return res.status(403).json({
@@ -85,6 +94,11 @@ export const getUserFilesController = async (
 ) => {
   try {
     const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
 
     const files = await getUserFiles(userId);
 
@@ -107,7 +121,12 @@ export const downloadFileController = async (
 ) => {
   try {
     const userId = req.userId;
-    const fileId = req.params.fileId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+    const fileId = String(req.params.fileId);
 
     const downloadUrl = await createDownloadUrl(
       userId,
@@ -133,7 +152,14 @@ export const deleteFileController = async (
 ) => {
   try {
     const userId = req.userId;
-    const fileId = req.params.fileId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+    // const fileId = req.params.fileId;
+    const fileId = String(req.params.fileId);
+    
 
     await deleteFile(userId, fileId);
 

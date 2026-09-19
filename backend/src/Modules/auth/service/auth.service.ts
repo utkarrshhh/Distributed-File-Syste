@@ -1,12 +1,12 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import { generateToken } from "../../../config/jwt.ts";
+import { generateToken } from "../../../config/jwt.js";
 import {
   createUser,
   queryUserIdByEmail,
   findUserById,
 
-} from "../repository/auth.repository.ts";
+} from "../repository/auth.repository.js";
 
 
 export const signup = async (
