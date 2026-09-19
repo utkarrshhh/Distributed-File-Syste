@@ -10,7 +10,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       // "https://distributed-file-syste.vercel.app/",
-      "https://filesystem.utkarshshukla.dev/",
+      "https://filesystem.utkarshshukla.dev",
     ],
   })
 );
