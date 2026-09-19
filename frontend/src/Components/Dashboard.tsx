@@ -16,7 +16,6 @@ import {
   Upload,
   X,
   CheckCircle2,
-  Clock3,
   Menu,
   Sparkles,
 } from "lucide-react";
