@@ -12,6 +12,11 @@ export const checkObjectExists = async (
   s3Key: string
 ): Promise<boolean> => {
   try {
+    console.log("Checking S3 object:", {
+      bucket: BUCKET_NAME,
+      key: s3Key,
+    });
+
     await s3.send(
       new HeadObjectCommand({
         Bucket: BUCKET_NAME,
@@ -19,9 +24,12 @@ export const checkObjectExists = async (
       })
     );
 
-    return true;
+    console.log("S3 object exists");
 
+    return true;
   } catch (error) {
+    console.error("S3 HEAD OBJECT ERROR:", error);
+
     return false;
   }
 };
